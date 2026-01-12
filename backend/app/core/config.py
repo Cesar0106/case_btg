@@ -19,11 +19,11 @@ class Settings(BaseSettings):
         ENVIRONMENT: Ambiente atual (development, staging, production)
         HOST: Host para bind do servidor
         PORT: Porta para bind do servidor
-        DATABASE_URL: URL de conexão PostgreSQL
+        DATABASE_URL: URL de conexão PostgreSQL (async)
         REDIS_URL: URL de conexão Redis
-        SECRET_KEY: Chave secreta para JWT e criptografia
-        ACCESS_TOKEN_EXPIRE_MINUTES: Tempo de expiração do token JWT
-        ALGORITHM: Algoritmo de assinatura JWT
+        JWT_SECRET: Chave secreta para assinatura JWT
+        JWT_ALGORITHM: Algoritmo de assinatura JWT
+        JWT_EXPIRES_MINUTES: Tempo de expiração do token JWT em minutos
         ADMIN_EMAIL: Email do admin seed
         ADMIN_PASSWORD: Senha do admin seed
         LOG_LEVEL: Nível de logging (DEBUG, INFO, WARNING, ERROR, CRITICAL)
@@ -46,18 +46,18 @@ class Settings(BaseSettings):
     PORT: int = 8000
 
     # Database
-    DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/library_db"
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/library_db"
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
 
-    # Security
-    SECRET_KEY: str = "your-super-secret-key-change-in-production"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    ALGORITHM: str = "HS256"
+    # JWT Authentication
+    JWT_SECRET: str = "jvW2p9cQKx7nL4rT0uY1mZ8aS6eH3dN5fB2kP7xC1qV9tR4nL0uY6mZ8aS3eH1d"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRES_MINUTES: int = 30
 
     # Admin Seed
-    ADMIN_EMAIL: str = "admin@local.dev"
+    ADMIN_EMAIL: str = "cesar.ezra@ades.as"
     ADMIN_PASSWORD: str = "Admin123!"
 
     # Logging
@@ -67,6 +67,11 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         """Verifica se está em ambiente de produção."""
         return self.ENVIRONMENT == "production"
+
+    @property
+    def database_url_async(self) -> str:
+        """Retorna a URL do banco para uso com driver async."""
+        return self.DATABASE_URL
 
 
 @lru_cache

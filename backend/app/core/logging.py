@@ -45,8 +45,12 @@ def setup_logging(level: Optional[str] = None) -> None:
     root_logger.addHandler(handler)
 
     # Reduz verbosidade de loggers de terceiros
+    logging.getLogger("uvicorn").setLevel(logging.WARNING)
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+    logging.getLogger("uvicorn.error").setLevel(logging.WARNING)
+    logging.getLogger("sqlalchemy").setLevel(logging.WARNING)
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    logging.getLogger("asyncpg").setLevel(logging.WARNING)
 
     # Log inicial
     logger = logging.getLogger(__name__)

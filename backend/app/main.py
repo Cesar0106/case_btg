@@ -11,6 +11,8 @@ from fastapi import FastAPI
 
 from app.core.config import get_settings
 from app.core.logging import setup_logging, get_logger
+from app.db.session import check_database_connection, engine
+from app.db.redis import init_redis, close_redis, check_redis_connection
 from app.schemas.health import HealthResponse
 
 settings = get_settings()
@@ -24,17 +26,43 @@ async def lifespan(app: FastAPI):
 
     Startup:
         - Configura logging
-        - Futuramente: conecta ao banco e Redis
+        - Conecta ao Redis
+        - Verifica conexão com PostgreSQL
 
     Shutdown:
-        - Futuramente: fecha conexões
+        - Fecha conexão com Redis
+        - Fecha pool de conexões do banco
     """
     # Startup
     setup_logging()
     logger.info(f"Iniciando {settings.APP_NAME} em ambiente {settings.ENVIRONMENT}")
+
+    # Inicializa Redis
+    try:
+        await init_redis()
+        if await check_redis_connection():
+            logger.info("Conexão com Redis estabelecida")
+        else:
+            logger.warning("Redis não disponível - cache desabilitado")
+    except Exception as e:
+        logger.warning(f"Falha ao conectar ao Redis: {e}")
+
+    # Verifica PostgreSQL
+    try:
+        success, error = await check_database_connection()
+        if success:
+            logger.info("Conexão com PostgreSQL estabelecida")
+        else:
+            logger.warning(f"PostgreSQL não disponível: {error}")
+    except Exception as e:
+        logger.warning(f"Falha ao conectar ao PostgreSQL: {e}")
+
     yield
+
     # Shutdown
     logger.info(f"Encerrando {settings.APP_NAME}")
+    await close_redis()
+    await engine.dispose()
 
 
 app = FastAPI(
