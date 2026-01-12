@@ -37,6 +37,16 @@ from app.schemas.book import (
     BookTitleUpdate,
     BookTitleWithAuthor,
 )
+from app.schemas.loan import (
+    LoanCreate,
+    LoanRead,
+    LoanDetail,
+    LoanReturn,
+    LoanListFilters,
+    LOAN_PERIOD_DAYS,
+    FINE_PER_DAY,
+    MAX_ACTIVE_LOANS,
+)
 
 __all__ = [
     # Base
@@ -71,4 +81,13 @@ __all__ = [
     "BookTitleRead",
     "BookTitleUpdate",
     "BookTitleWithAuthor",
+    # Loan
+    "LoanCreate",
+    "LoanRead",
+    "LoanDetail",
+    "LoanReturn",
+    "LoanListFilters",
+    "LOAN_PERIOD_DAYS",
+    "FINE_PER_DAY",
+    "MAX_ACTIVE_LOANS",
 ]
