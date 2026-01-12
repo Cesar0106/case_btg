@@ -2,29 +2,25 @@
 Repository para operações de User no banco de dados.
 """
 
-from uuid import UUID
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
 from app.models.enums import UserRole
+from app.repositories.base import BaseRepository
 
 
-class UserRepository:
+class UserRepository(BaseRepository[User]):
     """Repository para operações CRUD de User."""
 
     def __init__(self, db: AsyncSession):
-        self.db = db
-
-    async def get_by_id(self, user_id: UUID) -> User | None:
-        """Busca usuário por ID."""
-        result = await self.db.execute(select(User).where(User.id == user_id))
-        return result.scalar_one_or_none()
+        super().__init__(User, db)
 
     async def get_by_email(self, email: str) -> User | None:
         """Busca usuário por email."""
-        result = await self.db.execute(select(User).where(User.email == email))
+        result = await self.db.execute(
+            select(User).where(User.email == email)
+        )
         return result.scalar_one_or_none()
 
     async def email_exists(self, email: str) -> bool:
@@ -32,7 +28,7 @@ class UserRepository:
         user = await self.get_by_email(email)
         return user is not None
 
-    async def create(
+    async def create_user(
         self,
         name: str,
         email: str,
@@ -40,19 +36,25 @@ class UserRepository:
         role: UserRole = UserRole.USER,
     ) -> User:
         """Cria novo usuário."""
-        user = User(
+        return await self.create(
             name=name,
             email=email,
             password_hash=password_hash,
             role=role,
         )
-        self.db.add(user)
-        await self.db.commit()
-        await self.db.refresh(user)
-        return user
 
-    async def count(self) -> int:
-        """Conta total de usuários."""
-        from sqlalchemy import func
-        result = await self.db.execute(select(func.count(User.id)))
-        return result.scalar_one()
+    async def get_all_paginated(
+        self,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> tuple[list[User], int]:
+        """
+        Lista usuários com paginação.
+
+        Returns:
+            Tupla (lista de usuários, total)
+        """
+        skip = (page - 1) * page_size
+        users = await self.get_all(skip=skip, limit=page_size)
+        total = await self.count()
+        return users, total

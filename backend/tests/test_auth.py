@@ -2,23 +2,10 @@
 Testes de integração para endpoints de autenticação.
 """
 
+import uuid
+
 import pytest
-from httpx import AsyncClient, ASGITransport
-
-from app.main import app
-
-
-@pytest.fixture
-def anyio_backend():
-    return "asyncio"
-
-
-@pytest.fixture
-async def client():
-    """Cliente HTTP assíncrono para testes."""
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        yield ac
+from httpx import AsyncClient
 
 
 class TestSignup:
@@ -27,18 +14,21 @@ class TestSignup:
     @pytest.mark.anyio
     async def test_signup_success(self, client: AsyncClient):
         """Signup com dados válidos deve retornar 201."""
+        # Usar email único para evitar conflitos com testes anteriores
+        email = f"test_{uuid.uuid4().hex[:8]}@example.com"
+
         response = await client.post(
             "/api/v1/auth/signup",
             json={
                 "name": "Test User",
-                "email": "test@example.com",
+                "email": email,
                 "password": "Test1234",
             },
         )
 
         assert response.status_code == 201
         data = response.json()
-        assert data["email"] == "test@example.com"
+        assert data["email"] == email
         assert data["name"] == "Test User"
         assert data["role"] == "USER"
         assert "id" in data
@@ -96,10 +86,10 @@ class TestMe:
 
     @pytest.mark.anyio
     async def test_me_without_token(self, client: AsyncClient):
-        """Acesso sem token deve retornar 403."""
+        """Acesso sem token deve retornar 401 (não autenticado)."""
         response = await client.get("/api/v1/auth/me")
 
-        assert response.status_code == 403
+        assert response.status_code == 401
 
     @pytest.mark.anyio
     async def test_me_with_invalid_token(self, client: AsyncClient):

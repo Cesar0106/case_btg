@@ -2,13 +2,18 @@
 Model de usuário do sistema.
 """
 
+from typing import TYPE_CHECKING, List
+
 from sqlalchemy import String
 from sqlalchemy.dialects.postgresql import ENUM
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
 from app.models.base import UUIDMixin, TimestampMixin
 from app.models.enums import UserRole
+
+if TYPE_CHECKING:
+    from app.models.loan import Loan
 
 
 class User(Base, UUIDMixin, TimestampMixin):
@@ -23,6 +28,7 @@ class User(Base, UUIDMixin, TimestampMixin):
         role: ADMIN ou USER
         created_at: Data de criação
         updated_at: Data de última atualização
+        loans: Lista de empréstimos do usuário
     """
     __tablename__ = "users"
 
@@ -38,6 +44,13 @@ class User(Base, UUIDMixin, TimestampMixin):
         ENUM(UserRole, name="user_role", create_type=True),
         nullable=False,
         default=UserRole.USER,
+    )
+
+    # Relationships
+    loans: Mapped[List["Loan"]] = relationship(
+        "Loan",
+        back_populates="user",
+        lazy="selectin",
     )
 
     def __repr__(self) -> str:

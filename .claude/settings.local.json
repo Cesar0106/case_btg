@@ -2,7 +2,16 @@
   "permissions": {
     "allow": [
       "Bash(tree:*)",
-      "Bash(alembic init:*)"
+      "Bash(alembic init:*)",
+      "Bash(.venvScriptspython.exe -m pytest tests/test_integration.py -v)",
+      "Bash(powershell.exe -Command \"cd ''C:\\\\Users\\\\cesar\\\\OneDrive\\\\Desktop\\\\Case_BTG\\\\case_btg\\\\backend''; .\\\\.venv\\\\Scripts\\\\python.exe -m pytest tests/test_integration.py -v\")",
+      "Bash(powershell.exe -Command \"cd ''C:\\\\Users\\\\cesar\\\\OneDrive\\\\Desktop\\\\Case_BTG\\\\case_btg\\\\backend''; .\\\\.venv\\\\Scripts\\\\python.exe -m pytest tests/ -v\")",
+      "Bash(powershell.exe -Command \"cd ''C:\\\\Users\\\\cesar\\\\OneDrive\\\\Desktop\\\\Case_BTG\\\\case_btg\\\\backend''; .\\\\.venv\\\\Scripts\\\\python.exe -m alembic revision --autogenerate -m ''add_loan_table''\")",
+      "Bash(powershell.exe -Command \"cd ''C:\\\\Users\\\\cesar\\\\OneDrive\\\\Desktop\\\\Case_BTG\\\\case_btg\\\\backend''; .\\\\.venv\\\\Scripts\\\\python.exe -m alembic upgrade head\")",
+      "Bash(powershell.exe -Command \"cd ''C:\\\\Users\\\\cesar\\\\OneDrive\\\\Desktop\\\\Case_BTG\\\\case_btg\\\\backend''; .\\\\.venv\\\\Scripts\\\\python.exe -c \"\"\nimport asyncio\nfrom sqlalchemy import text\nfrom app.db.session import engine\n\nasync def check\\(\\):\n    async with engine.connect\\(\\) as conn:\n        # Estrutura da tabela\n        result = await conn.execute\\(text\\(''''''\n            SELECT column_name, data_type, is_nullable \n            FROM information_schema.columns \n            WHERE table_name = ''loans''\n            ORDER BY ordinal_position\n        ''''''\\)\\)\n        print\\(''=== Colunas da tabela loans ===''\\)\n        for row in result:\n            print\\(f''  {row[0]}: {row[1]} \\(nullable: {row[2]}\\)''\\)\n        \n        # Índices\n        result = await conn.execute\\(text\\(''''''\n            SELECT indexname, indexdef \n            FROM pg_indexes \n            WHERE tablename = ''loans''\n        ''''''\\)\\)\n        print\\(\\)\n        print\\(''=== Índices ===''\\)\n        for row in result:\n            print\\(f''  {row[0]}''\\)\n\nasyncio.run\\(check\\(\\)\\)\n\"\"\")",
+      "Bash(powershell.exe -Command \"cd ''C:\\\\Users\\\\cesar\\\\OneDrive\\\\Desktop\\\\Case_BTG\\\\case_btg\\\\backend''; alembic upgrade head\")",
+      "Bash(powershell.exe -Command \"docker exec -it library_postgres psql -U postgres -d library_db -c ''\\\\d loans''\")",
+      "Bash(powershell.exe -Command \"docker exec library_postgres psql -U postgres -d library_db -c ''\\\\d loans''\")"
     ]
   }
 }

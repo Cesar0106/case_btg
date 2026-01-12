@@ -16,6 +16,7 @@ from app.models.enums import CopyStatus
 
 if TYPE_CHECKING:
     from app.models.author import Author
+    from app.models.loan import Loan
 
 
 class BookTitle(Base, UUIDMixin, TimestampMixin):
@@ -100,6 +101,11 @@ class BookCopy(Base, UUIDMixin, TimestampMixin):
     book_title: Mapped["BookTitle"] = relationship(
         "BookTitle",
         back_populates="copies",
+        lazy="selectin",
+    )
+    loans: Mapped[List["Loan"]] = relationship(
+        "Loan",
+        back_populates="book_copy",
         lazy="selectin",
     )
 

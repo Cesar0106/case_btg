@@ -2,7 +2,7 @@
 # Library API - Makefile
 # ============================================
 
-.PHONY: help up down logs restart db-logs redis-logs install dev test format lint clean
+.PHONY: help up down logs restart db-logs redis-logs install dev test format lint clean migrate seed
 
 # Default target
 help:
@@ -16,6 +16,8 @@ help:
 	@echo "  make install   - Instala dependências do backend"
 	@echo "  make dev       - Roda servidor de desenvolvimento"
 	@echo "  make test      - Roda testes"
+	@echo "  make migrate   - Roda migrations (alembic upgrade head)"
+	@echo "  make seed      - Cria usuário admin"
 	@echo "  make format    - Formata código com black e isort"
 	@echo "  make lint      - Verifica código com ruff"
 	@echo "  make clean     - Remove arquivos temporários"
@@ -54,6 +56,12 @@ dev:
 
 test:
 	cd backend && pytest tests/ -v
+
+migrate:
+	cd backend && alembic upgrade head
+
+seed:
+	cd backend && python -m app.db.seed
 
 format:
 	cd backend && black app tests && isort app tests

@@ -8,6 +8,7 @@ from app.models.enums import UserRole, CopyStatus
 from app.models.user import User
 from app.models.author import Author
 from app.models.book import BookTitle, BookCopy
+from app.models.loan import Loan
 
 __all__ = [
     "UserRole",
@@ -16,4 +17,5 @@ __all__ = [
     "Author",
     "BookTitle",
     "BookCopy",
+    "Loan",
 ]
