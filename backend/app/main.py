@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.core.logging import setup_logging, get_logger
 from app.db.session import check_database_connection, engine
@@ -74,6 +75,9 @@ app = FastAPI(
     openapi_url="/openapi.json",
     lifespan=lifespan,
 )
+
+# Inclui rotas da API v1
+app.include_router(api_router)
 
 
 @app.get(
