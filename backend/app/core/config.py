@@ -63,6 +63,15 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = "INFO"
 
+    # Rate Limiting
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_REQUESTS: int = 60  # requests per window
+    RATE_LIMIT_WINDOW_SECONDS: int = 60  # window size in seconds
+
+    # Cache
+    CACHE_ENABLED: bool = True
+    CACHE_AVAILABILITY_TTL_SECONDS: int = 15  # cache TTL for availability
+
     @property
     def is_production(self) -> bool:
         """Verifica se está em ambiente de produção."""

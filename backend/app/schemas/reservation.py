@@ -77,6 +77,7 @@ class ReservationCancelResponse(BaseSchema):
 class HoldProcessResult(BaseSchema):
     """Resultado do processamento de hold."""
     reservation_id: UUID
+    book_title_id: UUID
     book_copy_id: UUID
     hold_expires_at: datetime
     message: str
@@ -86,4 +87,8 @@ class ExpireHoldsResult(BaseSchema):
     """Resultado da expiração de holds."""
     expired_count: int
     next_holds_processed: int
+    affected_book_title_ids: list[UUID] = Field(
+        default_factory=list,
+        description="IDs dos títulos afetados (para invalidação de cache)",
+    )
     message: str

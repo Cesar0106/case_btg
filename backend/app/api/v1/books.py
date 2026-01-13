@@ -9,6 +9,10 @@ Contratos:
     - DELETE /books/{id}: Remove título e cópias (somente ADMIN)
     - POST /books/{id}/copies: Adiciona cópias (somente ADMIN)
     - GET /books/{id}/copies: Lista cópias do título
+    - GET /books/{id}/availability: Verifica disponibilidade (com cache)
+
+Cache aplicado:
+    - GET /books/{id}/availability: 15s TTL (configurável via CACHE_AVAILABILITY_TTL_SECONDS)
 
 Status codes:
     - 200: Sucesso
@@ -24,6 +28,7 @@ from uuid import UUID
 from fastapi import APIRouter, Query, status
 
 from app.core.deps import DbSession, CurrentUser, AdminUser
+from app.core.cache import cache_service
 from app.schemas.book import (
     BookTitleCreate,
     BookTitleRead,
@@ -215,7 +220,7 @@ async def delete_book(
     "/{book_id}/availability",
     response_model=BookAvailability,
     summary="Verificar disponibilidade",
-    description="Verifica se há cópias disponíveis para empréstimo.",
+    description="Verifica se há cópias disponíveis para empréstimo. Resultado em cache por 15s.",
 )
 async def check_availability(
     book_id: UUID,
@@ -224,6 +229,9 @@ async def check_availability(
 ) -> BookAvailability:
     """
     Verifica disponibilidade de um título para empréstimo.
+
+    Cache: 15 segundos (configurável via CACHE_AVAILABILITY_TTL_SECONDS).
+    Invalidação: Automática em create_loan, return_loan, process_holds.
 
     Retorna:
         - available: True se há cópia disponível
@@ -235,8 +243,19 @@ async def check_availability(
     Raises:
         404: Livro não encontrado
     """
+    # Tentar buscar do cache
+    cached = await cache_service.get_availability(book_id)
+    if cached:
+        return BookAvailability.model_validate(cached)
+
+    # Calcular disponibilidade
     service = BookService(db)
-    return await service.check_availability(book_id)
+    result = await service.check_availability(book_id)
+
+    # Salvar no cache
+    await cache_service.set_availability(book_id, result.model_dump(mode="json"))
+
+    return result
 
 
 # ==========================================

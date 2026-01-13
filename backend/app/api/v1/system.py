@@ -8,6 +8,10 @@ Contratos:
 Autorização:
     - Todos os endpoints requerem ADMIN
 
+Cache invalidation:
+    - POST /system/process-holds: invalida availability dos títulos processados
+    - POST /system/expire-holds: invalida availability dos títulos expirados
+
 Status codes:
     - 200: Sucesso
     - 401: Não autenticado
@@ -20,6 +24,7 @@ from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
 from app.core.deps import DbSession, AdminUser
+from app.core.cache import cache_service
 from app.schemas.reservation import HoldProcessResult, ExpireHoldsResult
 from app.services.reservation import ReservationService
 
@@ -65,6 +70,10 @@ async def process_holds(
     service = ReservationService(db)
     results = await service.process_holds(book_title_id)
 
+    # Invalidar cache de availability para títulos processados
+    for result in results:
+        await cache_service.invalidate_availability(result.book_title_id)
+
     return ProcessHoldsResponse(
         results=results,
         total_processed=len(results),
@@ -94,4 +103,10 @@ async def expire_holds(
         Contadores de holds expirados e novos holds processados
     """
     service = ReservationService(db)
-    return await service.expire_holds()
+    result = await service.expire_holds()
+
+    # Invalidar cache de availability para títulos afetados
+    for book_title_id in result.affected_book_title_ids:
+        await cache_service.invalidate_availability(book_title_id)
+
+    return result

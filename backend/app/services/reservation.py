@@ -257,6 +257,7 @@ class ReservationService:
         return ExpireHoldsResult(
             expired_count=expired_count,
             next_holds_processed=next_holds_processed,
+            affected_book_title_ids=list(titles_to_process),
             message=f"Expirados: {expired_count}, Novos holds: {next_holds_processed}",
         )
 
@@ -341,6 +342,7 @@ class ReservationService:
 
         return HoldProcessResult(
             reservation_id=first_reservation.id,
+            book_title_id=book_title_id,
             book_copy_id=copy.id,
             hold_expires_at=hold_expires_at,
             message=f"Cópia separada. Retire até {hold_expires_at.isoformat()}",

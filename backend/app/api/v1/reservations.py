@@ -11,6 +11,9 @@ Autorização:
     - USER: vê apenas suas próprias reservas
     - ADMIN: vê todas as reservas
 
+Rate Limiting aplicado:
+    - POST /reservations: 60 req/min (rate_limit_default)
+
 Status codes:
     - 200: Sucesso
     - 201: Criado com sucesso
@@ -18,13 +21,15 @@ Status codes:
     - 401: Não autenticado
     - 403: Sem permissão
     - 404: Reserva não encontrada
+    - 429: Rate limit excedido
 """
 
 from uuid import UUID
 
-from fastapi import APIRouter, Query, status, HTTPException
+from fastapi import APIRouter, Depends, Query, Request, status, HTTPException
 
 from app.core.deps import DbSession, CurrentUser
+from app.core.rate_limit import rate_limit_default
 from app.models.enums import UserRole, ReservationStatus
 from app.schemas.base import PaginatedResponse
 from app.schemas.reservation import (
@@ -49,6 +54,8 @@ async def create_reservation(
     data: ReservationCreate,
     db: DbSession,
     current_user: CurrentUser,
+    request: Request,
+    _: None = Depends(rate_limit_default),
 ) -> ReservationCreateResponse:
     """
     Cria nova reserva para o usuário autenticado.

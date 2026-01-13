@@ -6,10 +6,19 @@ Contratos:
     - GET /loans: Lista empréstimos com filtros
     - GET /loans/{id}: Detalhes do empréstimo
     - PATCH /loans/{id}/return: Devolve livro
+    - PATCH /loans/{id}/renew: Renova empréstimo
 
 Autorização:
     - USER: vê apenas seus próprios empréstimos
     - ADMIN: vê todos os empréstimos
+
+Rate Limiting aplicado:
+    - POST /loans: 60 req/min (rate_limit_default)
+    - PATCH /loans/{id}/renew: 60 req/min (rate_limit_default)
+
+Cache invalidation:
+    - POST /loans: invalida availability do book_title
+    - PATCH /loans/{id}/return: invalida availability do book_title
 
 Status codes:
     - 200: Sucesso
@@ -18,13 +27,16 @@ Status codes:
     - 401: Não autenticado
     - 403: Sem permissão
     - 404: Empréstimo não encontrado
+    - 429: Rate limit excedido
 """
 
 from uuid import UUID
 
-from fastapi import APIRouter, Query, status, HTTPException
+from fastapi import APIRouter, Depends, Query, Request, status, HTTPException
 
 from app.core.deps import DbSession, CurrentUser, AdminUser
+from app.core.rate_limit import rate_limit_default
+from app.core.cache import cache_service
 from app.models.enums import UserRole
 from app.schemas.base import PaginatedResponse
 from app.schemas.loan import (
@@ -87,6 +99,8 @@ async def create_loan(
     data: LoanCreate,
     db: DbSession,
     current_user: CurrentUser,
+    request: Request,
+    _: None = Depends(rate_limit_default),
 ) -> LoanResponse:
     """
     Cria novo empréstimo para o usuário autenticado.
@@ -96,13 +110,19 @@ async def create_loan(
         - Deve haver cópia disponível do título
         - Prazo: 14 dias
 
+    Rate limit: 60 req/min por usuário
+
     Raises:
         400: Usuário já tem 3 empréstimos ativos
         400: Nenhuma cópia disponível
         404: Livro não encontrado
+        429: Rate limit excedido
     """
     service = LoanService(db)
     loan = await service.create_loan(current_user, data.book_title_id)
+
+    # Invalidar cache de availability
+    await cache_service.invalidate_availability(data.book_title_id)
 
     return LoanResponse.from_loan(loan)
 
@@ -298,6 +318,10 @@ async def return_loan(
     # Processar devolução
     result = await service.return_loan(loan_id)
 
+    # Invalidar cache de availability
+    if result.loan.book_title_id:
+        await cache_service.invalidate_availability(result.loan.book_title_id)
+
     # Construir resposta com LoanResponse
     loan_response = LoanResponse.model_validate(result.loan.model_dump())
 
@@ -327,6 +351,8 @@ async def renew_loan(
     loan_id: UUID,
     db: DbSession,
     current_user: CurrentUser,
+    request: Request,
+    _: None = Depends(rate_limit_default),
 ) -> LoanRenewResponse:
     """
     Renova um empréstimo ativo.
@@ -344,6 +370,8 @@ async def renew_loan(
     Autorização:
         - Apenas o próprio usuário pode renovar seu empréstimo
 
+    Rate limit: 60 req/min por usuário
+
     Returns:
         Detalhes da renovação incluindo novas datas
 
@@ -354,6 +382,7 @@ async def renew_loan(
         400: Há reservas pendentes para o título
         403: Sem permissão
         404: Empréstimo não encontrado
+        429: Rate limit excedido
     """
     service = LoanService(db)
 
