@@ -3,6 +3,24 @@
 .env.local
 .env.*.local
 
+# Python virtual environments
+.venv/
+venv/
+ENV/
+backend/.venv/
+frontend_streamlit/.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
 # Claude
 .claude/
 CLAUDE.md
@@ -17,3 +35,13 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+
+# Test / Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Jupyter
+.ipynb_checkpoints/
