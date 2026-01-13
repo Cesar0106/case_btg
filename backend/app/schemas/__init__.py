@@ -47,6 +47,16 @@ from app.schemas.loan import (
     FINE_PER_DAY,
     MAX_ACTIVE_LOANS,
 )
+from app.schemas.reservation import (
+    ReservationCreate,
+    ReservationRead,
+    ReservationDetail,
+    ReservationCreateResponse,
+    ReservationCancelResponse,
+    HoldProcessResult,
+    ExpireHoldsResult,
+    HOLD_DURATION_HOURS,
+)
 
 __all__ = [
     # Base
@@ -90,4 +100,13 @@ __all__ = [
     "LOAN_PERIOD_DAYS",
     "FINE_PER_DAY",
     "MAX_ACTIVE_LOANS",
+    # Reservation
+    "ReservationCreate",
+    "ReservationRead",
+    "ReservationDetail",
+    "ReservationCreateResponse",
+    "ReservationCancelResponse",
+    "HoldProcessResult",
+    "ExpireHoldsResult",
+    "HOLD_DURATION_HOURS",
 ]

@@ -7,6 +7,7 @@ from app.services.user import UserService
 from app.services.author import AuthorService
 from app.services.book import BookService
 from app.services.loan import LoanService
+from app.services.reservation import ReservationService
 
 __all__ = [
     "AuthService",
@@ -14,4 +15,5 @@ __all__ = [
     "AuthorService",
     "BookService",
     "LoanService",
+    "ReservationService",
 ]

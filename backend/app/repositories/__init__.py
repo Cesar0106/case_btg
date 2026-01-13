@@ -7,6 +7,7 @@ from app.repositories.user import UserRepository
 from app.repositories.author import AuthorRepository
 from app.repositories.book import BookTitleRepository, BookCopyRepository
 from app.repositories.loan import LoanRepository
+from app.repositories.reservation import ReservationRepository
 
 __all__ = [
     "BaseRepository",
@@ -15,4 +16,5 @@ __all__ = [
     "BookTitleRepository",
     "BookCopyRepository",
     "LoanRepository",
+    "ReservationRepository",
 ]

@@ -564,3 +564,307 @@ class TestLoanService:
 
         assert can_borrow is False
         assert "Limite" in message
+
+
+# ==========================================
+# ReservationService Tests
+# ==========================================
+
+from app.models.reservation import Reservation
+from app.models.enums import ReservationStatus
+from app.services.reservation import ReservationService
+from app.schemas.reservation import HOLD_DURATION_HOURS
+
+
+@pytest.fixture
+def sample_reservation(sample_user, sample_book):
+    """Reserva de exemplo."""
+    now = datetime.now(timezone.utc)
+    reservation = Reservation(
+        id=uuid.uuid4(),
+        user_id=sample_user.id,
+        book_title_id=sample_book.id,
+        status=ReservationStatus.ACTIVE,
+        hold_expires_at=None,
+        created_at=now,
+        updated_at=now,
+    )
+    reservation.user = sample_user
+    reservation.book_title = sample_book
+    return reservation
+
+
+class TestReservationService:
+    """Testes para ReservationService."""
+
+    @pytest.mark.anyio
+    async def test_create_reservation_copy_available_fails(
+        self, mock_db, sample_user, sample_book
+    ):
+        """Deve falhar quando há cópia disponível (deve emprestar diretamente)."""
+        service = ReservationService(mock_db)
+
+        with patch.object(service.title_repo, 'get_by_id', return_value=sample_book):
+            with patch.object(
+                service.copy_repo,
+                'count_by_title',
+                return_value={"total": 2, "available": 1, "loaned": 1, "on_hold": 0},
+            ):
+                with pytest.raises(HTTPException) as exc_info:
+                    await service.create_reservation(sample_user, sample_book.id)
+
+        assert exc_info.value.status_code == 400
+        assert "cópias disponíveis" in exc_info.value.detail
+
+    @pytest.mark.anyio
+    async def test_create_reservation_no_active_loans_fails(
+        self, mock_db, sample_user, sample_book
+    ):
+        """Deve falhar quando não há empréstimos ativos (nada a esperar)."""
+        service = ReservationService(mock_db)
+
+        with patch.object(service.title_repo, 'get_by_id', return_value=sample_book):
+            with patch.object(
+                service.copy_repo,
+                'count_by_title',
+                return_value={"total": 1, "available": 0, "loaned": 1, "on_hold": 0},
+            ):
+                with patch.object(
+                    service.loan_repo,
+                    'get_earliest_due_date_by_title',
+                    return_value=None,
+                ):
+                    with pytest.raises(HTTPException) as exc_info:
+                        await service.create_reservation(sample_user, sample_book.id)
+
+        assert exc_info.value.status_code == 400
+        assert "empréstimos ativos" in exc_info.value.detail
+
+    @pytest.mark.anyio
+    async def test_create_reservation_duplicate_fails(
+        self, mock_db, sample_user, sample_book, sample_reservation
+    ):
+        """Deve falhar quando usuário já tem reserva ativa para o título."""
+        service = ReservationService(mock_db)
+        due_date = datetime.now(timezone.utc) + timedelta(days=7)
+
+        with patch.object(service.title_repo, 'get_by_id', return_value=sample_book):
+            with patch.object(
+                service.copy_repo,
+                'count_by_title',
+                return_value={"total": 1, "available": 0, "loaned": 1, "on_hold": 0},
+            ):
+                with patch.object(
+                    service.loan_repo,
+                    'get_earliest_due_date_by_title',
+                    return_value=due_date,
+                ):
+                    with patch.object(
+                        service.reservation_repo,
+                        'get_active_by_user_and_title',
+                        return_value=sample_reservation,
+                    ):
+                        with pytest.raises(HTTPException) as exc_info:
+                            await service.create_reservation(sample_user, sample_book.id)
+
+        assert exc_info.value.status_code == 400
+        assert "reserva ativa" in exc_info.value.detail
+
+    @pytest.mark.anyio
+    async def test_create_reservation_book_not_found(self, mock_db, sample_user):
+        """Deve falhar quando livro não existe."""
+        service = ReservationService(mock_db)
+
+        with patch.object(service.title_repo, 'get_by_id', return_value=None):
+            with pytest.raises(HTTPException) as exc_info:
+                await service.create_reservation(sample_user, uuid.uuid4())
+
+        assert exc_info.value.status_code == 404
+        assert "Livro não encontrado" in exc_info.value.detail
+
+    @pytest.mark.anyio
+    async def test_cancel_reservation_success(
+        self, mock_db, sample_user, sample_reservation
+    ):
+        """Deve cancelar reserva ACTIVE com sucesso."""
+        service = ReservationService(mock_db)
+
+        cancelled_reservation = Reservation(
+            id=sample_reservation.id,
+            user_id=sample_reservation.user_id,
+            book_title_id=sample_reservation.book_title_id,
+            status=ReservationStatus.CANCELLED,
+            hold_expires_at=None,
+            created_at=sample_reservation.created_at,
+            updated_at=datetime.now(timezone.utc),
+        )
+        cancelled_reservation.user = sample_reservation.user
+        cancelled_reservation.book_title = sample_reservation.book_title
+
+        with patch.object(
+            service.reservation_repo,
+            'get_with_relations',
+            return_value=sample_reservation,
+        ):
+            with patch.object(
+                service.reservation_repo,
+                'update_status',
+                return_value=cancelled_reservation,
+            ):
+                result = await service.cancel_reservation(
+                    sample_user,
+                    sample_reservation.id,
+                )
+
+        assert result.reservation.status == ReservationStatus.CANCELLED
+        assert "cancelada" in result.message
+
+    @pytest.mark.anyio
+    async def test_cancel_reservation_not_owner_fails(
+        self, mock_db, sample_user, sample_reservation
+    ):
+        """Deve falhar quando usuário tenta cancelar reserva de outro."""
+        service = ReservationService(mock_db)
+
+        other_user = User(
+            id=uuid.uuid4(),
+            name="Other User",
+            email="other@example.com",
+            password_hash="hashed",
+            role=UserRole.USER,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+
+        with patch.object(
+            service.reservation_repo,
+            'get_with_relations',
+            return_value=sample_reservation,
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await service.cancel_reservation(other_user, sample_reservation.id)
+
+        assert exc_info.value.status_code == 403
+        assert "permissão" in exc_info.value.detail
+
+    @pytest.mark.anyio
+    async def test_cancel_reservation_already_fulfilled_fails(
+        self, mock_db, sample_user, sample_reservation
+    ):
+        """Deve falhar ao cancelar reserva já cumprida."""
+        service = ReservationService(mock_db)
+
+        sample_reservation.status = ReservationStatus.FULFILLED
+
+        with patch.object(
+            service.reservation_repo,
+            'get_with_relations',
+            return_value=sample_reservation,
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await service.cancel_reservation(sample_user, sample_reservation.id)
+
+        assert exc_info.value.status_code == 400
+        assert "não pode ser cancelada" in exc_info.value.detail
+
+    @pytest.mark.anyio
+    async def test_process_holds_success(
+        self, mock_db, sample_book, sample_copy, sample_reservation
+    ):
+        """Deve processar hold quando há cópia disponível e reserva ACTIVE."""
+        service = ReservationService(mock_db)
+
+        sample_copy.status = CopyStatus.AVAILABLE
+
+        with patch.object(
+            service.copy_repo,
+            'get_available_by_title',
+            return_value=[sample_copy],
+        ):
+            with patch.object(
+                service.reservation_repo,
+                'get_first_active_by_title',
+                return_value=sample_reservation,
+            ):
+                with patch.object(
+                    service.copy_repo,
+                    'update_status',
+                    return_value=sample_copy,
+                ):
+                    with patch.object(
+                        service.reservation_repo,
+                        'update_status',
+                        return_value=sample_reservation,
+                    ):
+                        results = await service.process_holds(sample_book.id)
+
+        assert len(results) == 1
+        assert results[0].reservation_id == sample_reservation.id
+        assert results[0].book_copy_id == sample_copy.id
+
+    @pytest.mark.anyio
+    async def test_process_holds_no_available_copy(self, mock_db, sample_book):
+        """Não deve processar hold quando não há cópia disponível."""
+        service = ReservationService(mock_db)
+
+        with patch.object(
+            service.copy_repo,
+            'get_available_by_title',
+            return_value=[],
+        ):
+            results = await service.process_holds(sample_book.id)
+
+        assert len(results) == 0
+
+    @pytest.mark.anyio
+    async def test_expire_holds_success(
+        self, mock_db, sample_reservation, sample_copy, sample_book
+    ):
+        """Deve expirar holds vencidos e processar próximos."""
+        service = ReservationService(mock_db)
+
+        sample_reservation.status = ReservationStatus.ON_HOLD
+        sample_reservation.hold_expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+        sample_copy.status = CopyStatus.ON_HOLD
+        sample_copy.hold_reservation_id = sample_reservation.id
+
+        expired_reservation = Reservation(
+            id=sample_reservation.id,
+            user_id=sample_reservation.user_id,
+            book_title_id=sample_reservation.book_title_id,
+            status=ReservationStatus.EXPIRED,
+            hold_expires_at=sample_reservation.hold_expires_at,
+            created_at=sample_reservation.created_at,
+            updated_at=datetime.now(timezone.utc),
+        )
+        expired_reservation.book_title = sample_book
+
+        with patch.object(
+            service.reservation_repo,
+            'get_expired_holds',
+            return_value=[sample_reservation],
+        ):
+            with patch.object(
+                service.copy_repo,
+                'get_by_title',
+                return_value=[sample_copy],
+            ):
+                with patch.object(
+                    service.copy_repo,
+                    'update_status',
+                    return_value=sample_copy,
+                ):
+                    with patch.object(
+                        service.reservation_repo,
+                        'update_status',
+                        return_value=expired_reservation,
+                    ):
+                        with patch.object(
+                            service.copy_repo,
+                            'get_available_by_title',
+                            return_value=[],
+                        ):
+                            result = await service.expire_holds()
+
+        assert result.expired_count == 1
+        assert "Expirados: 1" in result.message

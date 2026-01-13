@@ -96,6 +96,7 @@ class BookCopy(Base, UUIDMixin, TimestampMixin):
     )
     hold_reservation_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
+        ForeignKey("reservations.id", ondelete="SET NULL"),
         nullable=True,
     )
     hold_expires_at: Mapped[Optional[datetime]] = mapped_column(
