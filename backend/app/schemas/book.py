@@ -25,7 +25,7 @@ class BookTitleCreate(BaseSchema):
     @field_validator("published_year")
     @classmethod
     def validate_year(cls, v: int | None) -> int | None:
-        if v is not None and v > datetime.now().year:
+        if v is not None and v > datetime.utcnow().year:
             raise ValueError("Ano de publicação não pode ser no futuro")
         return v
 

@@ -51,13 +51,13 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
 
-    # JWT Authentication
-    JWT_SECRET: str = "jvW2p9cQKx7nL4rT0uY1mZ8aS6eH3dN5fB2kP7xC1qV9tR4nL0uY6mZ8aS3eH1d"
+    # JWT Authentication (ALTERAR EM PRODUÇÃO!)
+    JWT_SECRET: str = "dev-secret-change-in-production-use-strong-256-bit-key"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRES_MINUTES: int = 30
 
-    # Admin Seed
-    ADMIN_EMAIL: str = "cesar.ezra@ades.as"
+    # Admin Seed (ALTERAR EM PRODUÇÃO!)
+    ADMIN_EMAIL: str = "admin@library.local"
     ADMIN_PASSWORD: str = "Admin123!"
 
     # Logging

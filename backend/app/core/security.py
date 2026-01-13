@@ -2,6 +2,7 @@
 Utilitários de segurança: hash de senha e JWT.
 """
 
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -10,6 +11,7 @@ from jose import JWTError, jwt
 
 from app.core.config import get_settings
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
@@ -44,7 +46,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
             plain_password.encode("utf-8"),
             hashed_password.encode("utf-8"),
         )
-    except Exception:
+    except Exception as e:
+        logger.debug(f"Erro na verificação de senha: {type(e).__name__}")
         return False
 
 

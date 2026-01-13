@@ -2,11 +2,17 @@
 Schemas Pydantic para Author.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from pydantic import Field
 
 from app.schemas.base import BaseSchema, TimestampSchema
+
+if TYPE_CHECKING:
+    from app.schemas.book import BookTitleRead
 
 
 class AuthorCreate(BaseSchema):
@@ -27,11 +33,11 @@ class AuthorUpdate(BaseSchema):
 
 class AuthorWithBooks(AuthorRead):
     """Autor com lista de livros (para detalhes)."""
-    books: list["BookTitleRead"] = []
+    books: list[BookTitleRead] = []
 
     model_config = {"from_attributes": True}
 
 
-# Import para type hints (evita circular import)
-from app.schemas.book import BookTitleRead  # noqa: E402
+# Rebuild model para resolver forward references
+from app.schemas.book import BookTitleRead  # noqa: E402, F811
 AuthorWithBooks.model_rebuild()

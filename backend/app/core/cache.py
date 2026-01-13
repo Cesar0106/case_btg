@@ -25,12 +25,14 @@ Invalidação:
 """
 
 import json
+import logging
 from typing import Any, Optional
 from uuid import UUID
 
 from app.core.config import get_settings
 from app.db.redis import redis_client
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
@@ -82,7 +84,8 @@ class CacheService:
             if data:
                 return json.loads(data)
             return None
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Erro ao buscar cache availability: {e}")
             return None
 
     async def set_availability(
@@ -113,7 +116,8 @@ class CacheService:
                 json.dumps(data, default=str),
             )
             return True
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Erro ao salvar cache availability: {e}")
             return False
 
     async def invalidate_availability(self, book_title_id: UUID) -> bool:
@@ -139,7 +143,8 @@ class CacheService:
             key = f"{self.PREFIX_AVAILABILITY}:{book_title_id}"
             await redis_client.delete(key)
             return True
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Erro ao invalidar cache availability: {e}")
             return False
 
     async def invalidate_all_availability(self) -> int:
@@ -163,7 +168,8 @@ class CacheService:
             if keys:
                 return await redis_client.delete(*keys)
             return 0
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Erro ao invalidar todo cache availability: {e}")
             return 0
 
 

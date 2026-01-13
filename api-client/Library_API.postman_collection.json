@@ -1,0 +1,1252 @@
+{
+	"info": {
+		"_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+		"name": "Library API",
+		"description": "API de gerenciamento de biblioteca - Case BTG\n\nExecute na ordem para que as variáveis sejam populadas corretamente.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health",
+			"item": [
+				{
+					"name": "Health Check",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Health OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Status is healthy', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.status).to.eql('healthy');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8000/health",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["health"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Signup",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Signup OK or exists', function() {",
+									"    pm.expect(pm.response.code).to.be.oneOf([201, 400]);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Test User\",\n    \"email\": \"testuser@example.com\",\n    \"password\": \"TestPass123!\"\n}",
+							"options": {"raw": {"language": "json"}}
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/v1/auth/signup",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "auth", "signup"]
+						}
+					}
+				},
+				{
+					"name": "Login User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Login OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Has token', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.token).to.have.property('access_token');",
+									"    pm.collectionVariables.set('user_token', jsonData.token.access_token);",
+									"    pm.collectionVariables.set('user_id', jsonData.user.id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"testuser@example.com\",\n    \"password\": \"TestPass123!\"\n}",
+							"options": {"raw": {"language": "json"}}
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/v1/auth/login",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "auth", "login"]
+						}
+					}
+				},
+				{
+					"name": "Login Admin",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Login OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Has token and is admin', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.token).to.have.property('access_token');",
+									"    pm.expect(jsonData.user.role).to.eql('ADMIN');",
+									"    pm.collectionVariables.set('admin_token', jsonData.token.access_token);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@local.dev\",\n    \"password\": \"Admin123!\"\n}",
+							"options": {"raw": {"language": "json"}}
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/v1/auth/login",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "auth", "login"]
+						}
+					}
+				},
+				{
+					"name": "Get Me",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Get Me OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Has user data', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('email');",
+									"    pm.expect(jsonData).to.have.property('name');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{user_token}}"}],
+						"url": {
+							"raw": "http://localhost:8000/api/v1/auth/me",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "auth", "me"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Users (Admin)",
+			"item": [
+				{
+					"name": "List Users",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('List Users OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Is paginated', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('items');",
+									"    pm.expect(jsonData).to.have.property('total');",
+									"    pm.expect(jsonData).to.have.property('pages');",
+									"});",
+									"pm.test('Has user stats', function() {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.items.length > 0) {",
+									"        pm.expect(jsonData.items[0]).to.have.property('active_loans_count');",
+									"        pm.expect(jsonData.items[0]).to.have.property('total_loans_count');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{admin_token}}"}],
+						"url": {
+							"raw": "http://localhost:8000/api/v1/users",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "users"]
+						}
+					}
+				},
+				{
+					"name": "List Users with Filters",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('List Users with Filters OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Is paginated', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('items');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{admin_token}}"}],
+						"url": {
+							"raw": "http://localhost:8000/api/v1/users?role=USER&page=1&page_size=10",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "users"],
+							"query": [
+								{"key": "role", "value": "USER"},
+								{"key": "page", "value": "1"},
+								{"key": "page_size", "value": "10"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get User by ID",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Get User OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Has user data with stats', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('id');",
+									"    pm.expect(jsonData).to.have.property('name');",
+									"    pm.expect(jsonData).to.have.property('email');",
+									"    pm.expect(jsonData).to.have.property('role');",
+									"    pm.expect(jsonData).to.have.property('active_loans_count');",
+									"    pm.expect(jsonData).to.have.property('total_loans_count');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{admin_token}}"}],
+						"url": {
+							"raw": "http://localhost:8000/api/v1/users/{{user_id}}",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "users", "{{user_id}}"]
+						}
+					}
+				},
+				{
+					"name": "Get User Loans",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Get User Loans OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Is array', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.be.an('array');",
+									"});",
+									"pm.test('Has loan data if not empty', function() {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.length > 0) {",
+									"        pm.expect(jsonData[0]).to.have.property('id');",
+									"        pm.expect(jsonData[0]).to.have.property('loaned_at');",
+									"        pm.expect(jsonData[0]).to.have.property('due_date');",
+									"        pm.expect(jsonData[0]).to.have.property('status');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{admin_token}}"}],
+						"url": {
+							"raw": "http://localhost:8000/api/v1/users/{{user_id}}/loans",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "users", "{{user_id}}", "loans"]
+						}
+					}
+				},
+				{
+					"name": "Get User Loans (Active)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Get Active Loans OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Is array', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.be.an('array');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{admin_token}}"}],
+						"url": {
+							"raw": "http://localhost:8000/api/v1/users/{{user_id}}/loans?status=active",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "users", "{{user_id}}", "loans"],
+							"query": [{"key": "status", "value": "active"}]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Authors",
+			"item": [
+				{
+					"name": "Create Author",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Create Author OK', function() {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"pm.test('Has author data', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('id');",
+									"    pm.collectionVariables.set('author_id', jsonData.id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Machado de Assis\"\n}",
+							"options": {"raw": {"language": "json"}}
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/v1/authors",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "authors"]
+						}
+					}
+				},
+				{
+					"name": "List Authors",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('List Authors OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Is paginated', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('items');",
+									"    pm.expect(jsonData).to.have.property('total');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{user_token}}"}],
+						"url": {
+							"raw": "http://localhost:8000/api/v1/authors",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "authors"]
+						}
+					}
+				},
+				{
+					"name": "Get Author by ID",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Get Author OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Has author data', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('id');",
+									"    pm.expect(jsonData).to.have.property('name');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{user_token}}"}],
+						"url": {
+							"raw": "http://localhost:8000/api/v1/authors/{{author_id}}",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "authors", "{{author_id}}"]
+						}
+					}
+				},
+				{
+					"name": "Update Author",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Update Author OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Name updated', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.name).to.eql('Machado de Assis (Updated)');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Machado de Assis (Updated)\"\n}",
+							"options": {"raw": {"language": "json"}}
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/v1/authors/{{author_id}}",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "authors", "{{author_id}}"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Books",
+			"item": [
+				{
+					"name": "Create Book",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Create Book OK', function() {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"pm.test('Has book data', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('book');",
+									"    pm.collectionVariables.set('book_id', jsonData.book.id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Dom Casmurro\",\n    \"author_id\": \"{{author_id}}\",\n    \"published_year\": 1899,\n    \"pages\": 256\n}",
+							"options": {"raw": {"language": "json"}}
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/v1/books?quantity=2",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "books"],
+							"query": [{"key": "quantity", "value": "2"}]
+						}
+					}
+				},
+				{
+					"name": "List Books",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('List Books OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Is paginated', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('items');",
+									"    pm.expect(jsonData).to.have.property('total');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{user_token}}"}],
+						"url": {
+							"raw": "http://localhost:8000/api/v1/books",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "books"]
+						}
+					}
+				},
+				{
+					"name": "Get Book by ID",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Get Book OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Has book data', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('id');",
+									"    pm.expect(jsonData).to.have.property('title');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{user_token}}"}],
+						"url": {
+							"raw": "http://localhost:8000/api/v1/books/{{book_id}}",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "books", "{{book_id}}"]
+						}
+					}
+				},
+				{
+					"name": "Update Book",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Update Book OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Title updated', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.title).to.eql('Dom Casmurro - Edição Especial');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Dom Casmurro - Edição Especial\",\n    \"author_id\": \"{{author_id}}\",\n    \"published_year\": 1899,\n    \"pages\": 280\n}",
+							"options": {"raw": {"language": "json"}}
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/v1/books/{{book_id}}",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "books", "{{book_id}}"]
+						}
+					}
+				},
+				{
+					"name": "Check Availability",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Availability OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Has availability data', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('available');",
+									"    pm.expect(jsonData).to.have.property('total_copies');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{user_token}}"}],
+						"url": {
+							"raw": "http://localhost:8000/api/v1/books/{{book_id}}/availability",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "books", "{{book_id}}", "availability"]
+						}
+					}
+				},
+				{
+					"name": "List Book Copies",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('List Copies OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Is array', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.be.an('array');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{admin_token}}"}],
+						"url": {
+							"raw": "http://localhost:8000/api/v1/books/{{book_id}}/copies",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "books", "{{book_id}}", "copies"]
+						}
+					}
+				},
+				{
+					"name": "Add Book Copies",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Add Copies OK', function() {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"pm.test('Returns array of copies', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.be.an('array');",
+									"    pm.expect(jsonData.length).to.be.greaterThan(0);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"quantity\": 1\n}",
+							"options": {"raw": {"language": "json"}}
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/v1/books/{{book_id}}/copies",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "books", "{{book_id}}", "copies"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Loans",
+			"item": [
+				{
+					"name": "Create Loan",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Create Loan OK', function() {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"pm.test('Has loan data', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('id');",
+									"    pm.expect(jsonData).to.have.property('status');",
+									"    pm.collectionVariables.set('loan_id', jsonData.id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{user_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"book_title_id\": \"{{book_id}}\"\n}",
+							"options": {"raw": {"language": "json"}}
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/v1/loans",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "loans"]
+						}
+					}
+				},
+				{
+					"name": "List All Loans (Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('List Loans OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Is paginated', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('items');",
+									"    pm.expect(jsonData).to.have.property('total');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{admin_token}}"}],
+						"url": {
+							"raw": "http://localhost:8000/api/v1/loans",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "loans"]
+						}
+					}
+				},
+				{
+					"name": "My Loans",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('My Loans OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Is array', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.be.an('array');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{user_token}}"}],
+						"url": {
+							"raw": "http://localhost:8000/api/v1/loans/my",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "loans", "my"]
+						}
+					}
+				},
+				{
+					"name": "Get Loan by ID",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Get Loan OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Has loan data', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('id');",
+									"    pm.expect(jsonData).to.have.property('status');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{user_token}}"}],
+						"url": {
+							"raw": "http://localhost:8000/api/v1/loans/{{loan_id}}",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "loans", "{{loan_id}}"]
+						}
+					}
+				},
+				{
+					"name": "List Overdue Loans (Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Overdue Loans OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Is array', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.be.an('array');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{admin_token}}"}],
+						"url": {
+							"raw": "http://localhost:8000/api/v1/loans/overdue",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "loans", "overdue"]
+						}
+					}
+				},
+				{
+					"name": "Renew Loan",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Renew OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Has renewed data', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('new_due_date');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [{"key": "Authorization", "value": "Bearer {{user_token}}"}],
+						"url": {
+							"raw": "http://localhost:8000/api/v1/loans/{{loan_id}}/renew",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "loans", "{{loan_id}}", "renew"]
+						}
+					}
+				},
+				{
+					"name": "Return Loan",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Return OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Status is RETURNED', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.loan.status).to.eql('RETURNED');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [{"key": "Authorization", "value": "Bearer {{user_token}}"}],
+						"url": {
+							"raw": "http://localhost:8000/api/v1/loans/{{loan_id}}/return",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "loans", "{{loan_id}}", "return"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Reservations",
+			"item": [
+				{
+					"name": "Create Reservation",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Create Reservation', function() {",
+									"    pm.expect(pm.response.code).to.be.oneOf([201, 400]);",
+									"});",
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('reservation_id', jsonData.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{user_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"book_title_id\": \"{{book_id}}\"\n}",
+							"options": {"raw": {"language": "json"}}
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/v1/reservations",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "reservations"]
+						}
+					}
+				},
+				{
+					"name": "List All Reservations (Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('List Reservations OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Is paginated', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('items');",
+									"    pm.expect(jsonData).to.have.property('total');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{admin_token}}"}],
+						"url": {
+							"raw": "http://localhost:8000/api/v1/reservations",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "reservations"]
+						}
+					}
+				},
+				{
+					"name": "My Reservations",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('My Reservations OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Is array', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.be.an('array');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{user_token}}"}],
+						"url": {
+							"raw": "http://localhost:8000/api/v1/reservations/my",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "reservations", "my"]
+						}
+					}
+				},
+				{
+					"name": "Get Reservation by ID",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Get Reservation OK', function() {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{user_token}}"}],
+						"url": {
+							"raw": "http://localhost:8000/api/v1/reservations/{{reservation_id}}",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "reservations", "{{reservation_id}}"]
+						}
+					}
+				},
+				{
+					"name": "Cancel Reservation",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Cancel Reservation', function() {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 400, 404]);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [{"key": "Authorization", "value": "Bearer {{user_token}}"}],
+						"url": {
+							"raw": "http://localhost:8000/api/v1/reservations/{{reservation_id}}/cancel",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "reservations", "{{reservation_id}}", "cancel"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "System (Admin)",
+			"item": [
+				{
+					"name": "Process Holds",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Process Holds OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Has results', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('results');",
+									"    pm.expect(jsonData).to.have.property('total_processed');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Authorization", "value": "Bearer {{admin_token}}"}],
+						"url": {
+							"raw": "http://localhost:8000/api/v1/system/process-holds",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "system", "process-holds"]
+						}
+					}
+				},
+				{
+					"name": "Expire Holds",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Expire Holds OK', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Has result', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('expired_count');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Authorization", "value": "Bearer {{admin_token}}"}],
+						"url": {
+							"raw": "http://localhost:8000/api/v1/system/expire-holds",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["api", "v1", "system", "expire-holds"]
+						}
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{"key": "user_token", "value": ""},
+		{"key": "admin_token", "value": ""},
+		{"key": "user_id", "value": ""},
+		{"key": "author_id", "value": ""},
+		{"key": "book_id", "value": ""},
+		{"key": "loan_id", "value": ""},
+		{"key": "reservation_id", "value": ""}
+	]
+}

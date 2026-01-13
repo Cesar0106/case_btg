@@ -15,15 +15,17 @@ Uso:
         ...
 """
 
+import logging
 from typing import Optional
 
-from fastapi import HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import get_settings
 from app.core.security import decode_token
 from app.db.redis import redis_client
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 security = HTTPBearer(auto_error=False)
 
@@ -53,7 +55,7 @@ class RateLimiter:
     async def __call__(
         self,
         request: Request,
-        credentials: Optional[HTTPAuthorizationCredentials] = None,
+        credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     ) -> None:
         """
         Verifica rate limit.
@@ -95,9 +97,9 @@ class RateLimiter:
                 )
         except HTTPException:
             raise
-        except Exception:
+        except Exception as e:
             # Em caso de erro no Redis, permite passagem (fail-open)
-            pass
+            logger.warning(f"Erro no rate limiter (fail-open): {e}")
 
     async def _get_identifier(
         self,

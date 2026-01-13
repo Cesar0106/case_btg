@@ -2,7 +2,7 @@
 Repository para operações de Author no banco de dados.
 """
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -66,7 +66,6 @@ class AuthorRepository(BaseRepository[Author]):
             count_query = count_query.where(Author.name.ilike(f"%{search}%"))
 
         # Total com filtros
-        from sqlalchemy import func
         count_result = await self.db.execute(
             select(func.count()).select_from(count_query.subquery())
         )

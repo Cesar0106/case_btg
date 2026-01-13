@@ -329,12 +329,7 @@ class LoanService:
         book_title_id = book_copy.book_title_id if book_copy else None
 
         if book_title_id:
-            active_reservation = await self.reservation_repo.get_active_by_user_and_title(
-                user_id=user_id,  # Dummy, vamos buscar qualquer reserva ativa
-                book_title_id=book_title_id,
-            )
-            # Na verdade, precisamos verificar se QUALQUER usuário tem reserva
-            # Vamos buscar a primeira reserva ativa para este título
+            # Verificar se há reservas ACTIVE para este título
             first_active = await self.reservation_repo.get_first_active_by_title(
                 book_title_id
             )

@@ -4,12 +4,14 @@ Configuração de conexão com Redis para cache e rate limiting.
 Este módulo fornece o cliente Redis e funções utilitárias.
 """
 
+import logging
 from typing import Optional
 
 import redis.asyncio as redis
 
 from app.core.config import get_settings
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 # Cliente Redis (será inicializado no startup)
@@ -66,5 +68,6 @@ async def check_redis_connection() -> bool:
             await redis_client.ping()
             return True
         return False
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Erro ao verificar conexão Redis: {e}")
         return False

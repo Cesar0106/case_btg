@@ -8,7 +8,7 @@ Cria o usuário admin se não existir.
 """
 
 import asyncio
-import sys
+import logging
 
 from sqlalchemy import select
 
@@ -18,6 +18,7 @@ from app.db.session import async_session_factory
 from app.models.user import User
 from app.models.enums import UserRole
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
@@ -28,17 +29,15 @@ async def create_admin() -> None:
     Lê email e senha do .env (ADMIN_EMAIL, ADMIN_PASSWORD).
     """
     async with async_session_factory() as db:
-        # Verifica se admin já existe
         result = await db.execute(
             select(User).where(User.email == settings.ADMIN_EMAIL)
         )
         existing = result.scalar_one_or_none()
 
         if existing:
-            print(f"Admin já existe: {settings.ADMIN_EMAIL}")
+            logger.info(f"Admin já existe: {settings.ADMIN_EMAIL}")
             return
 
-        # Cria admin
         admin = User(
             name="Administrador",
             email=settings.ADMIN_EMAIL,
@@ -49,23 +48,15 @@ async def create_admin() -> None:
         await db.commit()
         await db.refresh(admin)
 
-        print(f"Admin criado com sucesso!")
-        print(f"  Email: {settings.ADMIN_EMAIL}")
-        print(f"  Role: ADMIN")
-        print(f"  ID: {admin.id}")
+        logger.info(f"Admin criado: {settings.ADMIN_EMAIL} (ID: {admin.id})")
 
 
 async def main() -> None:
     """Executa todos os seeds."""
-    print("=" * 50)
-    print("Executando seeds...")
-    print("=" * 50)
-
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    logger.info("Executando seeds...")
     await create_admin()
-
-    print("=" * 50)
-    print("Seeds concluídos!")
-    print("=" * 50)
+    logger.info("Seeds concluídos!")
 
 
 if __name__ == "__main__":
