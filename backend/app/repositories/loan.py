@@ -166,3 +166,23 @@ class LoanRepository(BaseRepository[Loan]):
             .order_by(Loan.due_date)
         )
         return list(result.scalars().all())
+
+    async def get_earliest_due_date_by_title(self, book_title_id: UUID) -> datetime | None:
+        """
+        Retorna a menor due_date dos empréstimos ativos de um título.
+
+        Args:
+            book_title_id: ID do título do livro
+
+        Returns:
+            Menor due_date ou None se não houver empréstimos ativos
+        """
+        result = await self.db.execute(
+            select(func.min(Loan.due_date))
+            .join(BookCopy)
+            .where(
+                BookCopy.book_title_id == book_title_id,
+                Loan.returned_at.is_(None),
+            )
+        )
+        return result.scalar_one_or_none()

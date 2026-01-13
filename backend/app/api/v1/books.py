@@ -30,6 +30,7 @@ from app.schemas.book import (
     BookTitleUpdate,
     BookTitleDetail,
     BookCopyRead,
+    BookAvailability,
 )
 from app.schemas.base import PaginatedResponse, MessageResponse
 from app.services.book import BookService
@@ -204,6 +205,38 @@ async def delete_book(
     service = BookService(db)
     await service.delete_title(book_id)
     return MessageResponse(message="Livro removido com sucesso")
+
+
+# ==========================================
+# Availability Endpoint
+# ==========================================
+
+@router.get(
+    "/{book_id}/availability",
+    response_model=BookAvailability,
+    summary="Verificar disponibilidade",
+    description="Verifica se há cópias disponíveis para empréstimo.",
+)
+async def check_availability(
+    book_id: UUID,
+    db: DbSession,
+    current_user: CurrentUser,
+) -> BookAvailability:
+    """
+    Verifica disponibilidade de um título para empréstimo.
+
+    Retorna:
+        - available: True se há cópia disponível
+        - reason: Motivo se não disponível ("All copies are loaned" ou "Copies on hold/reserved")
+        - expected_due_date: Menor due_date dos empréstimos ativos (quando aplicável)
+        - available_copies: Quantidade de cópias disponíveis
+        - total_copies: Total de cópias do título
+
+    Raises:
+        404: Livro não encontrado
+    """
+    service = BookService(db)
+    return await service.check_availability(book_id)
 
 
 # ==========================================

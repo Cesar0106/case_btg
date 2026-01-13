@@ -11,11 +11,13 @@ from app.models.book import BookTitle, BookCopy
 from app.models.enums import CopyStatus
 from app.repositories.author import AuthorRepository
 from app.repositories.book import BookTitleRepository, BookCopyRepository
+from app.repositories.loan import LoanRepository
 from app.schemas.book import (
     BookTitleCreate,
     BookTitleUpdate,
     BookTitleDetail,
     BookCopyCreate,
+    BookAvailability,
 )
 
 
@@ -27,6 +29,7 @@ class BookService:
         self.title_repo = BookTitleRepository(db)
         self.copy_repo = BookCopyRepository(db)
         self.author_repo = AuthorRepository(db)
+        self.loan_repo = LoanRepository(db)
 
     # ==========================================
     # BookTitle operations
@@ -245,3 +248,67 @@ class BookService:
         """Retorna uma cópia disponível do título, se houver."""
         copies = await self.copy_repo.get_available_by_title(book_id)
         return copies[0] if copies else None
+
+    # ==========================================
+    # Availability check
+    # ==========================================
+
+    async def check_availability(self, book_id: UUID) -> BookAvailability:
+        """
+        Verifica disponibilidade de um título para empréstimo.
+
+        Regras:
+            - available = True se existe BookCopy com status AVAILABLE
+            - Se não disponível:
+                - reason: "All copies are loaned" ou "Copies on hold/reserved"
+                - expected_due_date: menor due_date dos empréstimos ativos
+
+        Args:
+            book_id: ID do título do livro
+
+        Returns:
+            BookAvailability com status e detalhes
+
+        Raises:
+            HTTPException 404: Livro não encontrado
+        """
+        # Verifica se livro existe
+        book = await self.title_repo.get_by_id(book_id)
+        if not book:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Livro não encontrado",
+            )
+
+        # Conta cópias por status
+        counts = await self.copy_repo.count_by_title(book_id)
+        total_copies = counts["total"]
+        available_copies = counts["available"]
+        on_hold_copies = counts.get("on_hold", 0)
+        loaned_copies = counts.get("loaned", 0)
+
+        # Determina disponibilidade
+        is_available = available_copies > 0
+        reason = None
+        expected_due_date = None
+
+        if not is_available and total_copies > 0:
+            # Determina razão
+            if on_hold_copies > 0:
+                reason = "Copies on hold/reserved"
+            elif loaned_copies > 0:
+                reason = "All copies are loaned"
+            else:
+                reason = "No copies available"
+
+            # Busca menor due_date dos empréstimos ativos
+            expected_due_date = await self.loan_repo.get_earliest_due_date_by_title(book_id)
+
+        return BookAvailability(
+            book_title_id=book_id,
+            available=is_available,
+            reason=reason,
+            expected_due_date=expected_due_date,
+            available_copies=available_copies,
+            total_copies=total_copies,
+        )

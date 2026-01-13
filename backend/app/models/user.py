@@ -14,6 +14,7 @@ from app.models.enums import UserRole
 
 if TYPE_CHECKING:
     from app.models.loan import Loan
+    from app.models.reservation import Reservation
 
 
 class User(Base, UUIDMixin, TimestampMixin):
@@ -49,6 +50,11 @@ class User(Base, UUIDMixin, TimestampMixin):
     # Relationships
     loans: Mapped[List["Loan"]] = relationship(
         "Loan",
+        back_populates="user",
+        lazy="selectin",
+    )
+    reservations: Mapped[List["Reservation"]] = relationship(
+        "Reservation",
         back_populates="user",
         lazy="selectin",
     )
