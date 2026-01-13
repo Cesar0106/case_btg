@@ -42,6 +42,7 @@ router = APIRouter(prefix="/loans", tags=["Loans"])
 # Schema de resposta estendido
 # ==========================================
 
+from datetime import datetime
 from typing import Literal
 from decimal import Decimal
 from pydantic import BaseModel, computed_field
@@ -303,5 +304,68 @@ async def return_loan(
     return LoanReturnResponse(
         loan=loan_response,
         fine_applied=result.fine_applied,
+        message=result.message,
+    )
+
+
+class LoanRenewResponse(BaseModel):
+    """Resposta de renovação com loan estendido."""
+
+    loan: LoanResponse
+    previous_due_date: datetime
+    new_due_date: datetime
+    message: str
+
+
+@router.patch(
+    "/{loan_id}/renew",
+    response_model=LoanRenewResponse,
+    summary="Renovar empréstimo",
+    description="Renova um empréstimo ativo por mais 14 dias.",
+)
+async def renew_loan(
+    loan_id: UUID,
+    db: DbSession,
+    current_user: CurrentUser,
+) -> LoanRenewResponse:
+    """
+    Renova um empréstimo ativo.
+
+    Regras:
+        - Empréstimo deve estar ATIVO (não devolvido)
+        - Máximo de 1 renovação permitida
+        - Não pode estar atrasado (now <= due_date)
+        - Não pode haver reservas ACTIVE/ON_HOLD para o título
+
+    Ação:
+        - due_date += 14 dias
+        - renewals_count += 1
+
+    Autorização:
+        - Apenas o próprio usuário pode renovar seu empréstimo
+
+    Returns:
+        Detalhes da renovação incluindo novas datas
+
+    Raises:
+        400: Empréstimo já devolvido
+        400: Limite de renovações atingido
+        400: Empréstimo atrasado
+        400: Há reservas pendentes para o título
+        403: Sem permissão
+        404: Empréstimo não encontrado
+    """
+    service = LoanService(db)
+
+    # Processar renovação (validação de propriedade feita no service)
+    result = await service.renew_loan(loan_id, current_user.id)
+
+    # Construir resposta com LoanResponse
+    loan_response = LoanResponse.model_validate(result.loan.model_dump())
+
+    return LoanRenewResponse(
+        loan=loan_response,
+        previous_due_date=result.previous_due_date,
+        new_due_date=result.new_due_date,
         message=result.message,
     )

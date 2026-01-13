@@ -143,6 +143,15 @@ class LoanReturn(BaseModel):
     message: str
 
 
+class LoanRenew(BaseModel):
+    """Schema de resposta para renovação de empréstimo."""
+
+    loan: LoanDetail
+    previous_due_date: datetime
+    new_due_date: datetime
+    message: str
+
+
 class LoanListFilters(BaseModel):
     """Filtros para listagem de empréstimos."""
 

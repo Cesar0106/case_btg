@@ -18,12 +18,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.loan import Loan
 from app.models.book import BookCopy
 from app.models.user import User
-from app.models.enums import CopyStatus
+from app.models.enums import CopyStatus, ReservationStatus
 from app.repositories.loan import LoanRepository
 from app.repositories.book import BookTitleRepository, BookCopyRepository
+from app.repositories.reservation import ReservationRepository
 from app.schemas.loan import (
     LoanDetail,
     LoanReturn,
+    LoanRenew,
     LOAN_PERIOD_DAYS,
     FINE_PER_DAY,
     MAX_ACTIVE_LOANS,
@@ -38,6 +40,7 @@ class LoanService:
         self.loan_repo = LoanRepository(db)
         self.title_repo = BookTitleRepository(db)
         self.copy_repo = BookCopyRepository(db)
+        self.reservation_repo = ReservationRepository(db)
 
     # ==========================================
     # Create Loan
@@ -86,15 +89,24 @@ class LoanService:
                 detail="Livro não encontrado",
             )
 
-        # 3. Buscar cópia disponível
-        copy = await self._find_available_copy(book.copies, user.id)
+        # 3. Buscar cópia disponível (pode ser ON_HOLD para este usuário)
+        copy, reservation_id = await self._find_available_copy(book.copies, user.id)
         if not copy:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Nenhuma cópia disponível para empréstimo",
             )
 
-        # 4. Marcar cópia como LOANED
+        # 4. Se era ON_HOLD, marcar reserva como FULFILLED
+        if reservation_id:
+            reservation = await self.reservation_repo.get_by_id(reservation_id)
+            if reservation:
+                await self.reservation_repo.update_status(
+                    reservation,
+                    ReservationStatus.FULFILLED,
+                )
+
+        # 5. Marcar cópia como LOANED
         await self.copy_repo.update_status(
             copy,
             status=CopyStatus.LOANED,
@@ -102,7 +114,7 @@ class LoanService:
             hold_expires_at=None,
         )
 
-        # 5. Criar registro de empréstimo
+        # 6. Criar registro de empréstimo
         now = datetime.utcnow()
         due_date = now + timedelta(days=LOAN_PERIOD_DAYS)
 
@@ -124,7 +136,7 @@ class LoanService:
         self,
         copies: list[BookCopy],
         user_id: UUID,
-    ) -> BookCopy | None:
+    ) -> tuple[BookCopy | None, UUID | None]:
         """
         Encontra uma cópia disponível para empréstimo.
 
@@ -137,7 +149,7 @@ class LoanService:
             user_id: ID do usuário que está pegando emprestado
 
         Returns:
-            BookCopy disponível ou None se não houver
+            Tupla (BookCopy disponível ou None, reservation_id se ON_HOLD)
         """
         now = datetime.utcnow()
 
@@ -149,18 +161,19 @@ class LoanService:
                 and copy.hold_expires_at is not None
                 and copy.hold_expires_at.replace(tzinfo=None) > now
             ):
-                # TODO: Verificar se hold_reservation_id pertence ao user_id
-                # Isso requer consulta à tabela de reservas
-                # Por enquanto, assumimos que se há hold, é do usuário correto
-                # Na implementação completa de Reservation, validar aqui
-                pass
+                # Verificar se a reserva pertence ao usuário
+                reservation = await self.reservation_repo.get_by_id(
+                    copy.hold_reservation_id
+                )
+                if reservation and reservation.user_id == user_id:
+                    return copy, reservation.id
 
         # Segundo: procurar qualquer cópia AVAILABLE
         for copy in copies:
             if copy.status == CopyStatus.AVAILABLE:
-                return copy
+                return copy, None
 
-        return None
+        return None, None
 
     # ==========================================
     # Return Loan
@@ -238,6 +251,129 @@ class LoanService:
             loan=loan_detail,
             fine_applied=fine_amount,
             message=message,
+        )
+
+    # ==========================================
+    # Renew Loan
+    # ==========================================
+
+    async def renew_loan(self, loan_id: UUID, user_id: UUID) -> LoanRenew:
+        """
+        Renova um empréstimo.
+
+        Regras:
+            1. Empréstimo deve estar ATIVO (não devolvido)
+            2. renewals_count < 1 (só pode renovar 1 vez)
+            3. Não pode estar atrasado (now <= due_date)
+            4. Não pode existir reserva ACTIVE/ON_HOLD para o book_title
+
+        Ação:
+            - due_date += 14 dias
+            - renewals_count += 1
+
+        Args:
+            loan_id: ID do empréstimo
+            user_id: ID do usuário solicitando (para validar propriedade)
+
+        Returns:
+            LoanRenew com detalhes da renovação
+
+        Raises:
+            HTTPException 404: Empréstimo não encontrado
+            HTTPException 403: Empréstimo não pertence ao usuário
+            HTTPException 400: Empréstimo já devolvido
+            HTTPException 400: Já renovou o máximo permitido
+            HTTPException 400: Empréstimo está atrasado
+            HTTPException 400: Há reservas pendentes para este título
+        """
+        # 1. Buscar empréstimo
+        loan = await self.loan_repo.get_with_relations(loan_id)
+        if not loan:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Empréstimo não encontrado",
+            )
+
+        # 2. Verificar propriedade
+        if loan.user_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Este empréstimo não pertence a você",
+            )
+
+        # 3. Verificar se está ativo (não devolvido)
+        if loan.returned_at is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Não é possível renovar um empréstimo já devolvido",
+            )
+
+        # 4. Verificar limite de renovações
+        if loan.renewals_count >= 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Limite de renovações atingido (máximo: 1)",
+            )
+
+        # 5. Verificar se está atrasado
+        now = datetime.utcnow()
+        due_date_naive = loan.due_date.replace(tzinfo=None)
+        if now > due_date_naive:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Não é possível renovar um empréstimo atrasado",
+            )
+
+        # 6. Verificar se há reservas ACTIVE ou ON_HOLD para o título
+        book_copy = loan.book_copy
+        book_title_id = book_copy.book_title_id if book_copy else None
+
+        if book_title_id:
+            active_reservation = await self.reservation_repo.get_active_by_user_and_title(
+                user_id=user_id,  # Dummy, vamos buscar qualquer reserva ativa
+                book_title_id=book_title_id,
+            )
+            # Na verdade, precisamos verificar se QUALQUER usuário tem reserva
+            # Vamos buscar a primeira reserva ativa para este título
+            first_active = await self.reservation_repo.get_first_active_by_title(
+                book_title_id
+            )
+            if first_active:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Não é possível renovar: há reservas pendentes para este título",
+                )
+
+            # Verificar também reservas ON_HOLD
+            reservations, _ = await self.reservation_repo.search(
+                book_title_id=book_title_id,
+                status=ReservationStatus.ON_HOLD,
+                page=1,
+                page_size=1,
+            )
+            if reservations:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Não é possível renovar: há reservas pendentes para este título",
+                )
+
+        # 7. Aplicar renovação
+        previous_due_date = loan.due_date
+        new_due_date = due_date_naive + timedelta(days=LOAN_PERIOD_DAYS)
+
+        loan.due_date = new_due_date
+        loan.renewals_count += 1
+        await self.db.commit()
+
+        # 8. Recarregar e retornar
+        loan = await self.loan_repo.get_with_relations(loan_id)
+        loan_detail = LoanDetail.from_loan(loan)
+
+        return LoanRenew(
+            loan=loan_detail,
+            previous_due_date=previous_due_date,
+            new_due_date=new_due_date,
+            message=f"Empréstimo renovado com sucesso. Nova data de devolução: {new_due_date.strftime('%d/%m/%Y')}",
         )
 
     # ==========================================

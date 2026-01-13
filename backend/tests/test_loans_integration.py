@@ -529,3 +529,192 @@ class TestOverdueLoans:
         assert response.status_code == 200
         # Retorna lista (pode estar vazia)
         assert isinstance(response.json(), list)
+
+
+# ==========================================
+# Test: Renew Loan
+# ==========================================
+
+class TestRenewLoan:
+    """Testes para PATCH /loans/{id}/renew."""
+
+    @pytest.mark.anyio
+    async def test_renew_loan_success(self, client: AsyncClient):
+        """Deve renovar empréstimo com sucesso."""
+        _, admin_token = await create_user_and_login(client, is_admin=True)
+        _, user_token = await create_user_and_login(client)
+
+        book = await create_book_with_copies(client, admin_token, quantity=1)
+        headers = {"Authorization": f"Bearer {user_token}"}
+
+        # Criar empréstimo
+        create_response = await client.post(
+            "/api/v1/loans",
+            json={"book_title_id": book["id"]},
+            headers=headers,
+        )
+        assert create_response.status_code == 201
+        loan = create_response.json()
+        loan_id = loan["id"]
+        original_due_date = loan["due_date"]
+
+        # Renovar
+        renew_response = await client.patch(
+            f"/api/v1/loans/{loan_id}/renew",
+            headers=headers,
+        )
+
+        assert renew_response.status_code == 200
+        data = renew_response.json()
+        assert data["loan"]["renewals_count"] == 1
+        assert data["previous_due_date"] == original_due_date
+        assert data["new_due_date"] != original_due_date
+        assert "renovado com sucesso" in data["message"]
+
+    @pytest.mark.anyio
+    async def test_renew_loan_max_renewals(self, client: AsyncClient):
+        """Não deve renovar mais de 1 vez."""
+        _, admin_token = await create_user_and_login(client, is_admin=True)
+        _, user_token = await create_user_and_login(client)
+
+        book = await create_book_with_copies(client, admin_token, quantity=1)
+        headers = {"Authorization": f"Bearer {user_token}"}
+
+        # Criar empréstimo
+        create_response = await client.post(
+            "/api/v1/loans",
+            json={"book_title_id": book["id"]},
+            headers=headers,
+        )
+        loan_id = create_response.json()["id"]
+
+        # Primeira renovação (sucesso)
+        renew1 = await client.patch(
+            f"/api/v1/loans/{loan_id}/renew",
+            headers=headers,
+        )
+        assert renew1.status_code == 200
+
+        # Segunda renovação (deve falhar)
+        renew2 = await client.patch(
+            f"/api/v1/loans/{loan_id}/renew",
+            headers=headers,
+        )
+        assert renew2.status_code == 400
+        assert "Limite de renovações" in renew2.json()["detail"]
+
+    @pytest.mark.anyio
+    async def test_renew_loan_already_returned(self, client: AsyncClient):
+        """Não deve renovar empréstimo já devolvido."""
+        _, admin_token = await create_user_and_login(client, is_admin=True)
+        _, user_token = await create_user_and_login(client)
+
+        book = await create_book_with_copies(client, admin_token, quantity=1)
+        headers = {"Authorization": f"Bearer {user_token}"}
+
+        # Criar empréstimo e devolver
+        create_response = await client.post(
+            "/api/v1/loans",
+            json={"book_title_id": book["id"]},
+            headers=headers,
+        )
+        loan_id = create_response.json()["id"]
+
+        await client.patch(f"/api/v1/loans/{loan_id}/return", headers=headers)
+
+        # Tentar renovar
+        renew_response = await client.patch(
+            f"/api/v1/loans/{loan_id}/renew",
+            headers=headers,
+        )
+
+        assert renew_response.status_code == 400
+        assert "já devolvido" in renew_response.json()["detail"]
+
+    @pytest.mark.anyio
+    async def test_renew_loan_not_owner(self, client: AsyncClient):
+        """Usuário não pode renovar empréstimo de outro."""
+        _, admin_token = await create_user_and_login(client, is_admin=True)
+        _, user1_token = await create_user_and_login(client)
+        _, user2_token = await create_user_and_login(client)
+
+        book = await create_book_with_copies(client, admin_token, quantity=1)
+
+        # User1 cria empréstimo
+        headers1 = {"Authorization": f"Bearer {user1_token}"}
+        create_response = await client.post(
+            "/api/v1/loans",
+            json={"book_title_id": book["id"]},
+            headers=headers1,
+        )
+        loan_id = create_response.json()["id"]
+
+        # User2 tenta renovar
+        headers2 = {"Authorization": f"Bearer {user2_token}"}
+        renew_response = await client.patch(
+            f"/api/v1/loans/{loan_id}/renew",
+            headers=headers2,
+        )
+
+        assert renew_response.status_code == 403
+        assert "não pertence a você" in renew_response.json()["detail"]
+
+    @pytest.mark.anyio
+    async def test_renew_loan_blocked_by_reservation(self, client: AsyncClient):
+        """Não deve renovar se há reserva ACTIVE para o título."""
+        _, admin_token = await create_user_and_login(client, is_admin=True)
+        user1, user1_token = await create_user_and_login(client)
+        user2, user2_token = await create_user_and_login(client)
+
+        # Criar livro com 1 cópia
+        book = await create_book_with_copies(client, admin_token, quantity=1)
+        headers1 = {"Authorization": f"Bearer {user1_token}"}
+        headers2 = {"Authorization": f"Bearer {user2_token}"}
+
+        # User1 cria empréstimo
+        create_response = await client.post(
+            "/api/v1/loans",
+            json={"book_title_id": book["id"]},
+            headers=headers1,
+        )
+        loan_id = create_response.json()["id"]
+
+        # User2 cria reserva (todas cópias emprestadas)
+        await client.post(
+            "/api/v1/reservations",
+            json={"book_title_id": book["id"]},
+            headers=headers2,
+        )
+
+        # User1 tenta renovar (deve falhar por causa da reserva)
+        renew_response = await client.patch(
+            f"/api/v1/loans/{loan_id}/renew",
+            headers=headers1,
+        )
+
+        assert renew_response.status_code == 400
+        assert "reservas pendentes" in renew_response.json()["detail"]
+
+    @pytest.mark.anyio
+    async def test_renew_loan_not_found(self, client: AsyncClient):
+        """Renovar empréstimo inexistente deve retornar 404."""
+        _, user_token = await create_user_and_login(client)
+        headers = {"Authorization": f"Bearer {user_token}"}
+
+        fake_id = str(uuid.uuid4())
+        response = await client.patch(
+            f"/api/v1/loans/{fake_id}/renew",
+            headers=headers,
+        )
+
+        assert response.status_code == 404
+        assert "não encontrado" in response.json()["detail"]
+
+    @pytest.mark.anyio
+    async def test_renew_loan_without_auth(self, client: AsyncClient):
+        """Renovar sem autenticação deve falhar."""
+        response = await client.patch(
+            f"/api/v1/loans/{uuid.uuid4()}/renew",
+        )
+
+        assert response.status_code == 401
